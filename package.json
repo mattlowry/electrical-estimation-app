@@ -1,0 +1,12 @@
+{
+  "name": "electrical-estimation-app",
+  "version": "1.0.0",
+  "description": "AI-powered electrical estimation application",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "dev": "cd frontend && npm run dev"
+  },
+  "workspaces": [
+    "frontend"
+  ]
+}
