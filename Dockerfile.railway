@@ -1,0 +1,52 @@
+# Multi-stage Dockerfile for Railway deployment
+# Builds both frontend and backend in single container
+
+# Stage 1: Build Frontend
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ .
+RUN npm run build
+
+# Stage 2: Backend with Frontend
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy backend requirements and install
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend source
+COPY backend/ .
+
+# Copy built frontend
+COPY --from=frontend-build /app/frontend/dist ./static
+
+# Create uploads directory
+RUN mkdir -p uploads
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+# Expose port
+EXPOSE $PORT
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:$PORT/health || exit 1
+
+# Start command
+CMD gunicorn -w 4 -b 0.0.0.0:$PORT --worker-class gevent src.app:create_app()
